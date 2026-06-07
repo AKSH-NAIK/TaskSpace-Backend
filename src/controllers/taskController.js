@@ -33,13 +33,40 @@ exports.createTask = async (req, res) => {
 };
 exports.getMyTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({
+    const { search, status, page = 1, limit = 5 } = req.query;
+
+    const query = {
       userId: req.user._id,
-    }).sort({ createdAt: -1 });
+    };
+
+    // Filter
+    if (status) {
+      query.status = status;
+    }
+
+    // Search
+    if (search) {
+      query.title = {
+        $regex: search,
+        $options: "i",
+      };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const tasks = await Task.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const totalTasks = await Task.countDocuments(query);
 
     res.status(200).json({
       success: true,
       count: tasks.length,
+      totalTasks,
+      currentPage: Number(page),
+      totalPages: Math.ceil(totalTasks / limit),
       tasks,
     });
   } catch (error) {
